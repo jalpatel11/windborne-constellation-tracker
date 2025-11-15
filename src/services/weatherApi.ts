@@ -17,7 +17,12 @@ export async function fetchWeatherData(
 ): Promise<WeatherData | null> {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure&timezone=auto`;
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
     if (!response.ok) return null;
     
     const data = await response.json();
@@ -33,7 +38,10 @@ export async function fetchWeatherData(
       humidity: current.relative_humidity_2m || 0,
       pressure: current.surface_pressure || 0,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.warn(`Weather fetch failed for ${latitude}, ${longitude}:`, error.message);
+    }
     return null;
   }
 }
@@ -45,10 +53,13 @@ export async function fetchWeatherForPositions(
 ): Promise<Map<string, WeatherData>> {
   const weatherMap = new Map<string, WeatherData>();
   
-  for (let i = 0; i < positions.length; i += maxConcurrent) {
-    const batch = positions.slice(i, i + maxConcurrent);
+  // Limit to first 20 positions to avoid long loading times
+  const limitedPositions = positions.slice(0, 20);
+  
+  for (let i = 0; i < limitedPositions.length; i += maxConcurrent) {
+    const batch = limitedPositions.slice(i, i + maxConcurrent);
     
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       batch.map(async (pos) => {
         const key = `${pos.latitude.toFixed(2)},${pos.longitude.toFixed(2)}`;
         const weather = await fetchWeatherData(pos.latitude, pos.longitude);
@@ -57,11 +68,13 @@ export async function fetchWeatherForPositions(
     );
     
     results.forEach((result) => {
-      if (result) weatherMap.set(result.key, result.weather);
+      if (result.status === 'fulfilled' && result.value) {
+        weatherMap.set(result.value.key, result.value.weather);
+      }
     });
     
-    if (i + maxConcurrent < positions.length) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    if (i + maxConcurrent < limitedPositions.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
   
