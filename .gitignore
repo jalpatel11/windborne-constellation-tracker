@@ -18,6 +18,7 @@ dist-ssr
 # Netlify
 .netlify
 .netlify/
+netlify.toml
 
 # Environment variables
 .env
