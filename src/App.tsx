@@ -70,7 +70,7 @@ function App() {
       setWeatherData(new Map());
       
       try {
-        await fetchWeatherForPositions(
+        const finalWeather = await fetchWeatherForPositions(
           currentData.positions.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
           20,
           (batchData) => {
@@ -84,6 +84,8 @@ function App() {
             });
           }
         );
+        // Ensure final weather data is set
+        setWeatherData(finalWeather);
       } catch (err) {
         console.error('Weather load failed:', err);
       } finally {
@@ -102,7 +104,17 @@ function App() {
 
   const getWeather = (position: BalloonPosition): WeatherData | null => {
     const key = `${position.latitude.toFixed(2)},${position.longitude.toFixed(2)}`;
-    return weatherData.get(key) || null;
+    const weather = weatherData.get(key);
+    if (!weather) {
+      // Try to find closest match (within 0.1 degree)
+      for (const [mapKey, mapWeather] of weatherData.entries()) {
+        const [lat, lon] = mapKey.split(',').map(Number);
+        if (Math.abs(lat - position.latitude) < 0.1 && Math.abs(lon - position.longitude) < 0.1) {
+          return mapWeather;
+        }
+      }
+    }
+    return weather || null;
   };
 
   const stats = useMemo(() => {
@@ -231,15 +243,16 @@ function App() {
           
           {currentData?.positions.map((position, index) => {
             const weather = getWeather(position);
-            const color = weather
-              ? weather.temperature > 20 ? '#ff6b6b'
-              : weather.temperature > 0 ? '#4ecdc4'
+            const hasWeather = weather !== null;
+            const color = hasWeather
+              ? weather!.temperature > 20 ? '#ff6b6b'
+              : weather!.temperature > 0 ? '#4ecdc4'
               : '#95a5a6'
               : '#ffa500';
 
             return (
               <CircleMarker
-                key={`${position.latitude}-${position.longitude}-${index}-${weather ? weather.temperature.toFixed(1) : 'loading'}`}
+                key={`${position.latitude}-${position.longitude}-${index}-${hasWeather ? weather!.temperature.toFixed(1) : 'loading'}-${weatherData.size}`}
                 center={[position.latitude, position.longitude]}
                 radius={6}
                 pathOptions={{ color, fillColor: color, fillOpacity: 0.7, weight: 2 }}
