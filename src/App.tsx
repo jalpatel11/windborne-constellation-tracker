@@ -227,7 +227,7 @@ function App() {
 
             return (
               <CircleMarker
-                key={`${position.latitude}-${position.longitude}-${index}`}
+                key={`${position.latitude}-${position.longitude}-${index}-${weather ? weather.temperature.toFixed(1) : 'loading'}`}
                 center={[position.latitude, position.longitude]}
                 radius={6}
                 pathOptions={{ color, fillColor: color, fillOpacity: 0.7, weight: 2 }}
