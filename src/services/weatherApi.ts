@@ -11,9 +11,18 @@ export interface WeatherData {
   timestamp?: number;
 }
 
+export interface RateLimitInfo {
+  isRateLimited: boolean;
+  retryAfter?: number; // seconds
+  resetTime?: Date;
+}
+
 // Simple in-memory cache (5 minute TTL)
 const weatherCache = new Map<string, { data: WeatherData; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Track rate limit state
+let rateLimitInfo: RateLimitInfo = { isRateLimited: false };
 
 // Get weather for location (with caching)
 export async function fetchWeatherData(
@@ -37,8 +46,23 @@ export async function fetchWeatherData(
     clearTimeout(timeoutId);
     
     if (response.status === 429) {
-      console.warn('Rate limit exceeded for Open-Meteo API');
+      const retryAfter = response.headers.get('Retry-After');
+      const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : 60; // Default 60 seconds
+      const resetTime = new Date(Date.now() + retrySeconds * 1000);
+      
+      rateLimitInfo = {
+        isRateLimited: true,
+        retryAfter: retrySeconds,
+        resetTime,
+      };
+      
+      console.warn('Rate limit exceeded for Open-Meteo API. Retry after:', retrySeconds, 'seconds');
       return null;
+    }
+    
+    // Reset rate limit if request succeeds
+    if (rateLimitInfo.isRateLimited && response.ok) {
+      rateLimitInfo = { isRateLimited: false };
     }
     
     if (!response.ok) return null;
@@ -129,4 +153,15 @@ export async function fetchWeatherForPositions(
   });
   
   return finalMap;
+}
+
+// Get current rate limit status
+export function getRateLimitInfo(): RateLimitInfo {
+  if (rateLimitInfo.isRateLimited && rateLimitInfo.resetTime) {
+    const now = new Date();
+    if (now >= rateLimitInfo.resetTime) {
+      rateLimitInfo = { isRateLimited: false };
+    }
+  }
+  return { ...rateLimitInfo };
 }

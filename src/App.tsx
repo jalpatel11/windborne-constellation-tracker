@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaf
 import L from 'leaflet';
 import { fetchConstellationHistory } from './services/constellationApi';
 import type { ConstellationData, BalloonPosition } from './services/constellationApi';
-import { fetchWeatherForPositions } from './services/weatherApi';
+import { fetchWeatherForPositions, getRateLimitInfo } from './services/weatherApi';
 import type { WeatherData } from './services/weatherApi';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -37,6 +37,7 @@ function App() {
   const [weatherData, setWeatherData] = useState<Map<string, WeatherData>>(new Map());
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ isRateLimited: boolean; retryAfter?: number; resetTime?: Date }>({ isRateLimited: false });
 
   useEffect(() => {
     async function loadData() {
@@ -88,10 +89,23 @@ function App() {
         console.error('Weather load failed:', err);
       } finally {
         setLoadingWeather(false);
+        // Check rate limit after loading
+        const limitInfo = getRateLimitInfo();
+        setRateLimitInfo(limitInfo);
       }
     }
     loadWeather();
   }, [currentData]);
+
+  // Check rate limit status periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const limitInfo = getRateLimitInfo();
+      setRateLimitInfo(limitInfo);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const mapCenter: [number, number] = useMemo(() => {
     if (!currentData?.positions.length) return [0, 0];
@@ -158,8 +172,53 @@ function App() {
     );
   }
 
+  // Calculate wait time for rate limit
+  const getWaitTime = (): string => {
+    if (!rateLimitInfo.isRateLimited || !rateLimitInfo.resetTime) return '';
+    
+    const now = new Date();
+    const reset = rateLimitInfo.resetTime;
+    const diffMs = reset.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return '';
+    
+    const minutes = Math.floor(diffMs / 60000);
+    const seconds = Math.floor((diffMs % 60000) / 1000);
+    
+    if (minutes > 0) {
+      return `${minutes} minute${minutes > 1 ? 's' : ''} and ${seconds} second${seconds !== 1 ? 's' : ''}`;
+    }
+    return `${seconds} second${seconds !== 1 ? 's' : ''}`;
+  };
+
   return (
     <div className="app-container">
+      {rateLimitInfo.isRateLimited && rateLimitInfo.resetTime && (
+        <div className="rate-limit-popup">
+          <div className="rate-limit-content">
+            <h3>⚠️ API Rate Limit Reached</h3>
+            <p>The weather API has reached its rate limit. Please wait before trying again.</p>
+            <p className="wait-time">
+              <strong>Wait time:</strong> {getWaitTime()}
+            </p>
+            <p className="reset-time">
+              Resets at: {rateLimitInfo.resetTime.toLocaleTimeString()}
+            </p>
+            <button 
+              onClick={() => {
+                const limitInfo = getRateLimitInfo();
+                if (!limitInfo.isRateLimited) {
+                  setRateLimitInfo({ isRateLimited: false });
+                }
+              }}
+              className="rate-limit-close"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      
       <header className="app-header">
         <h1>🌐 WindBorne Constellation Tracker</h1>
         <p className="subtitle">Real-time weather balloon tracking with live weather data</p>
