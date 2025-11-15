@@ -67,11 +67,23 @@ function App() {
 
     async function loadWeather() {
       setLoadingWeather(true);
+      setWeatherData(new Map());
+      
       try {
-        const weather = await fetchWeatherForPositions(
-          currentData.positions.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))
+        await fetchWeatherForPositions(
+          currentData.positions.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
+          10,
+          (batchData) => {
+            // Update weather data incrementally as batches complete
+            setWeatherData((prev) => {
+              const updated = new Map(prev);
+              batchData.forEach((value, key) => {
+                updated.set(key, value);
+              });
+              return updated;
+            });
+          }
         );
-        setWeatherData(weather);
       } catch (err) {
         console.error('Weather load failed:', err);
       } finally {

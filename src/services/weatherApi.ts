@@ -49,7 +49,8 @@ export async function fetchWeatherData(
 // Fetch weather for multiple positions
 export async function fetchWeatherForPositions(
   positions: Array<{ latitude: number; longitude: number }>,
-  maxConcurrent: number = 5
+  maxConcurrent: number = 10,
+  onBatchComplete?: (batchData: Map<string, WeatherData>) => void
 ): Promise<Map<string, WeatherData>> {
   const weatherMap = new Map<string, WeatherData>();
   
@@ -64,14 +65,20 @@ export async function fetchWeatherForPositions(
       })
     );
     
+    const batchMap = new Map<string, WeatherData>();
     results.forEach((result) => {
       if (result.status === 'fulfilled' && result.value) {
         weatherMap.set(result.value.key, result.value.weather);
+        batchMap.set(result.value.key, result.value.weather);
       }
     });
     
+    if (onBatchComplete) {
+      onBatchComplete(batchMap);
+    }
+    
     if (i + maxConcurrent < positions.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
   
