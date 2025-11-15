@@ -1,23 +1,25 @@
 # WindBorne Constellation Tracker
 
-Interactive web app that visualizes WindBorne Systems' weather balloon constellation combined with real-time weather data.
+Interactive map showing WindBorne Systems' weather balloon positions with live weather data overlay.
 
-**Live Demo:** https://windborne-constellation-tracker.netlify.app
+**Live:** https://windborne-constellation-tracker.netlify.app
 
-## What It Does
+## Features
 
-- Fetches live balloon positions from WindBorne's API (24-hour history)
-- Combines with weather data from Open-Meteo
-- Interactive map with time slider to view positions over time
-- Click balloons to see position, altitude, and weather conditions
+- Fetches 24-hour balloon position history from WindBorne API
+- Overlays real-time weather data (temperature, wind, humidity, pressure)
+- Time slider to view positions across different hours
+- Color-coded markers by temperature (red >20°C, teal 0-20°C, gray <0°C)
+- Click markers for detailed position and weather info
+- Rate limit detection with countdown popup
+- Weather data caching and deduplication
 
 ## Tech Stack
 
-- React + TypeScript
-- Vite
-- Leaflet for maps
-- Open-Meteo API (free, no key required)
-- Netlify Functions for CORS proxy
+- React + TypeScript + Vite
+- Leaflet for map visualization
+- Open-Meteo API for weather data
+- Netlify Functions for API proxying (CORS handling)
 
 ## Setup
 
@@ -26,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:5173`
+Runs on `http://localhost:5173`
 
 ## Build
 
@@ -34,20 +36,38 @@ Visit `http://localhost:5173`
 npm run build
 ```
 
-Output goes to `dist/`
+Output in `dist/`
 
 ## Deploy
-
-Deploy to Netlify:
 
 ```bash
 npm run build
 netlify deploy --prod --dir=dist
 ```
 
-The Netlify function in `netlify/functions/constellation.js` handles CORS for the WindBorne API.
+Netlify functions:
+- `netlify/functions/constellation.js` - Proxies WindBorne API
+- `netlify/functions/weather.js` - Proxies Open-Meteo API
 
-## Why Open-Meteo?
+## API Details
 
-Free weather API with no key required. Combining balloon positions with atmospheric conditions shows global weather patterns, directly relevant to WindBorne's mission.
+**WindBorne API:** Fetches from `https://a.windbornesystems.com/treasure/00.json` through `23.json` (24 hours). Handles corrupted/malformed data gracefully.
 
+**Open-Meteo API:** Free weather API, no key required. Used for temperature, wind speed/direction, humidity, and pressure. Includes:
+- 5-minute caching per location
+- Position deduplication
+- Rate limit detection with user notification
+- Batch processing for performance
+
+## Project Structure
+
+```
+src/
+  services/
+    constellationApi.ts  # WindBorne API client
+    weatherApi.ts        # Open-Meteo API client with caching
+  App.tsx               # Main component
+netlify/functions/
+  constellation.js      # WindBorne proxy
+  weather.js            # Open-Meteo proxy
+```
