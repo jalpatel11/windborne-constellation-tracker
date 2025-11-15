@@ -197,6 +197,26 @@ function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
+          <div className="map-legend">
+            <h4>Temperature</h4>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: '#ff6b6b' }}></span>
+              <span>&gt; 20°C</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: '#4ecdc4' }}></span>
+              <span>0-20°C</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: '#95a5a6' }}></span>
+              <span>&lt;= 0°C</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: '#3498db' }}></span>
+              <span>No data</span>
+            </div>
+          </div>
+          
           {currentData?.positions.map((position, index) => {
             const weather = getWeather(position);
             const color = weather
