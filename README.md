@@ -2,6 +2,8 @@
 
 Interactive web app that visualizes WindBorne Systems' weather balloon constellation combined with real-time weather data.
 
+**Live Demo:** https://windborne-constellation-tracker.netlify.app
+
 ## What It Does
 
 - Fetches live balloon positions from WindBorne's API (24-hour history)
