@@ -70,11 +70,11 @@ function App() {
       setWeatherData(new Map());
       
       try {
-        const finalWeather = await fetchWeatherForPositions(
+        await fetchWeatherForPositions(
           currentData.positions.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
           20,
           (batchData) => {
-            // Update weather data incrementally as batches complete
+            // Update weather data incrementally as each batch completes
             setWeatherData((prev) => {
               const updated = new Map(prev);
               batchData.forEach((value, key) => {
@@ -84,8 +84,6 @@ function App() {
             });
           }
         );
-        // Ensure final weather data is set
-        setWeatherData(finalWeather);
       } catch (err) {
         console.error('Weather load failed:', err);
       } finally {
@@ -244,6 +242,7 @@ function App() {
           {currentData?.positions.map((position, index) => {
             const weather = getWeather(position);
             const hasWeather = weather !== null;
+            const weatherKey = hasWeather ? `${weather!.temperature.toFixed(1)}-${weather!.latitude.toFixed(2)}-${weather!.longitude.toFixed(2)}` : 'loading';
             const color = hasWeather
               ? weather!.temperature > 20 ? '#ff6b6b'
               : weather!.temperature > 0 ? '#4ecdc4'
@@ -252,7 +251,7 @@ function App() {
 
             return (
               <CircleMarker
-                key={`${position.latitude}-${position.longitude}-${index}-${hasWeather ? weather!.temperature.toFixed(1) : 'loading'}-${weatherData.size}`}
+                key={`${position.latitude}-${position.longitude}-${index}-${weatherKey}-${weatherData.size}`}
                 center={[position.latitude, position.longitude]}
                 radius={6}
                 pathOptions={{ color, fillColor: color, fillOpacity: 0.7, weight: 2 }}

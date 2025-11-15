@@ -54,44 +54,31 @@ export async function fetchWeatherForPositions(
 ): Promise<Map<string, WeatherData>> {
   const weatherMap = new Map<string, WeatherData>();
   
-  // Process all batches in parallel for maximum speed
-  const batches: Array<Array<{ latitude: number; longitude: number }>> = [];
+  // Process batches sequentially so colors update incrementally
   for (let i = 0; i < positions.length; i += maxConcurrent) {
-    batches.push(positions.slice(i, i + maxConcurrent));
-  }
-  
-  // Process all batches concurrently
-  const batchResults = await Promise.all(
-    batches.map(async (batch) => {
-      const results = await Promise.allSettled(
-        batch.map(async (pos) => {
-          const key = `${pos.latitude.toFixed(2)},${pos.longitude.toFixed(2)}`;
-          const weather = await fetchWeatherData(pos.latitude, pos.longitude);
-          return weather ? { key, weather } : null;
-        })
-      );
-      
-      const batchMap = new Map<string, WeatherData>();
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value) {
-          batchMap.set(result.value.key, result.value.weather);
-        }
-      });
-      
-      if (onBatchComplete) {
-        onBatchComplete(batchMap);
+    const batch = positions.slice(i, i + maxConcurrent);
+    
+    const results = await Promise.allSettled(
+      batch.map(async (pos) => {
+        const key = `${pos.latitude.toFixed(2)},${pos.longitude.toFixed(2)}`;
+        const weather = await fetchWeatherData(pos.latitude, pos.longitude);
+        return weather ? { key, weather } : null;
+      })
+    );
+    
+    const batchMap = new Map<string, WeatherData>();
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        weatherMap.set(result.value.key, result.value.weather);
+        batchMap.set(result.value.key, result.value.weather);
       }
-      
-      return batchMap;
-    })
-  );
-  
-  // Merge all batch results
-  batchResults.forEach((batchMap) => {
-    batchMap.forEach((value, key) => {
-      weatherMap.set(key, value);
     });
-  });
+    
+    // Call callback immediately as each batch completes
+    if (onBatchComplete) {
+      onBatchComplete(batchMap);
+    }
+  }
   
   return weatherMap;
 }
