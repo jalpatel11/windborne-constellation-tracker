@@ -212,8 +212,8 @@ function App() {
               <span>&lt;= 0°C</span>
             </div>
             <div className="legend-item">
-              <span className="legend-color" style={{ backgroundColor: '#3498db' }}></span>
-              <span>No data</span>
+              <span className="legend-color" style={{ backgroundColor: '#ffa500' }}></span>
+              <span>Loading...</span>
             </div>
           </div>
           
@@ -223,7 +223,7 @@ function App() {
               ? weather.temperature > 20 ? '#ff6b6b'
               : weather.temperature > 0 ? '#4ecdc4'
               : '#95a5a6'
-              : '#3498db';
+              : '#ffa500';
 
             return (
               <CircleMarker
