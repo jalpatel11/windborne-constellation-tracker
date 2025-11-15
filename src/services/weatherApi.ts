@@ -53,11 +53,8 @@ export async function fetchWeatherForPositions(
 ): Promise<Map<string, WeatherData>> {
   const weatherMap = new Map<string, WeatherData>();
   
-  // Limit to first 20 positions to avoid long loading times
-  const limitedPositions = positions.slice(0, 20);
-  
-  for (let i = 0; i < limitedPositions.length; i += maxConcurrent) {
-    const batch = limitedPositions.slice(i, i + maxConcurrent);
+  for (let i = 0; i < positions.length; i += maxConcurrent) {
+    const batch = positions.slice(i, i + maxConcurrent);
     
     const results = await Promise.allSettled(
       batch.map(async (pos) => {
@@ -73,7 +70,7 @@ export async function fetchWeatherForPositions(
       }
     });
     
-    if (i + maxConcurrent < limitedPositions.length) {
+    if (i + maxConcurrent < positions.length) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
