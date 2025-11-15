@@ -38,6 +38,7 @@ function App() {
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitInfo, setRateLimitInfo] = useState<{ isRateLimited: boolean; retryAfter?: number; resetTime?: Date }>({ isRateLimited: false });
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     async function loadData() {
@@ -97,9 +98,10 @@ function App() {
     loadWeather();
   }, [currentData]);
 
-  // Check rate limit status periodically
+  // Check rate limit status periodically and update current time for countdown
   useEffect(() => {
     const interval = setInterval(() => {
+      setCurrentTime(new Date());
       const limitInfo = getRateLimitInfo();
       setRateLimitInfo(limitInfo);
     }, 1000);
@@ -172,15 +174,18 @@ function App() {
     );
   }
 
-  // Calculate wait time for rate limit
+  // Calculate wait time for rate limit (uses currentTime state to force updates)
   const getWaitTime = (): string => {
     if (!rateLimitInfo.isRateLimited || !rateLimitInfo.resetTime) return '';
     
-    const now = new Date();
     const reset = rateLimitInfo.resetTime;
-    const diffMs = reset.getTime() - now.getTime();
+    const diffMs = reset.getTime() - currentTime.getTime();
     
-    if (diffMs <= 0) return '';
+    if (diffMs <= 0) {
+      // Rate limit expired, clear it
+      setRateLimitInfo({ isRateLimited: false });
+      return '';
+    }
     
     const minutes = Math.floor(diffMs / 60000);
     const seconds = Math.floor((diffMs % 60000) / 1000);

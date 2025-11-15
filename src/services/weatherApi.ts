@@ -38,17 +38,42 @@ export async function fetchWeatherData(
   }
   
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure&timezone=auto`;
+    // Try Netlify proxy first, fallback to direct API
+    const proxyUrl = `/.netlify/functions/weather?latitude=${latitude}&longitude=${longitude}`;
+    const directUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure&timezone=auto`;
+    
+    let url = proxyUrl;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
     
-    const response = await fetch(url, { signal: controller.signal });
+    let response = await fetch(url, { signal: controller.signal });
+    
+    // If proxy fails, try direct API
+    if (!response.ok && response.status !== 429) {
+      url = directUrl;
+      response = await fetch(url, { signal: controller.signal });
+    }
+    
     clearTimeout(timeoutId);
     
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : 60; // Default 60 seconds
-      const resetTime = new Date(Date.now() + retrySeconds * 1000);
+      const rateLimitReset = response.headers.get('X-RateLimit-Reset');
+      
+      let retrySeconds = 60; // Default 60 seconds
+      let resetTime: Date;
+      
+      if (retryAfter) {
+        retrySeconds = parseInt(retryAfter, 10);
+        resetTime = new Date(Date.now() + retrySeconds * 1000);
+      } else if (rateLimitReset) {
+        // X-RateLimit-Reset is typically a Unix timestamp
+        const resetTimestamp = parseInt(rateLimitReset, 10);
+        resetTime = new Date(resetTimestamp * 1000);
+        retrySeconds = Math.ceil((resetTime.getTime() - Date.now()) / 1000);
+      } else {
+        resetTime = new Date(Date.now() + retrySeconds * 1000);
+      }
       
       rateLimitInfo = {
         isRateLimited: true,
