@@ -18,7 +18,7 @@ export async function fetchWeatherData(
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure&timezone=auto`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
     
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
@@ -49,38 +49,49 @@ export async function fetchWeatherData(
 // Fetch weather for multiple positions
 export async function fetchWeatherForPositions(
   positions: Array<{ latitude: number; longitude: number }>,
-  maxConcurrent: number = 10,
+  maxConcurrent: number = 20,
   onBatchComplete?: (batchData: Map<string, WeatherData>) => void
 ): Promise<Map<string, WeatherData>> {
   const weatherMap = new Map<string, WeatherData>();
   
+  // Process all batches in parallel for maximum speed
+  const batches: Array<Array<{ latitude: number; longitude: number }>> = [];
   for (let i = 0; i < positions.length; i += maxConcurrent) {
-    const batch = positions.slice(i, i + maxConcurrent);
-    
-    const results = await Promise.allSettled(
-      batch.map(async (pos) => {
-        const key = `${pos.latitude.toFixed(2)},${pos.longitude.toFixed(2)}`;
-        const weather = await fetchWeatherData(pos.latitude, pos.longitude);
-        return weather ? { key, weather } : null;
-      })
-    );
-    
-    const batchMap = new Map<string, WeatherData>();
-    results.forEach((result) => {
-      if (result.status === 'fulfilled' && result.value) {
-        weatherMap.set(result.value.key, result.value.weather);
-        batchMap.set(result.value.key, result.value.weather);
-      }
-    });
-    
-    if (onBatchComplete) {
-      onBatchComplete(batchMap);
-    }
-    
-    if (i + maxConcurrent < positions.length) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
+    batches.push(positions.slice(i, i + maxConcurrent));
   }
+  
+  // Process all batches concurrently
+  const batchResults = await Promise.all(
+    batches.map(async (batch) => {
+      const results = await Promise.allSettled(
+        batch.map(async (pos) => {
+          const key = `${pos.latitude.toFixed(2)},${pos.longitude.toFixed(2)}`;
+          const weather = await fetchWeatherData(pos.latitude, pos.longitude);
+          return weather ? { key, weather } : null;
+        })
+      );
+      
+      const batchMap = new Map<string, WeatherData>();
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          batchMap.set(result.value.key, result.value.weather);
+        }
+      });
+      
+      if (onBatchComplete) {
+        onBatchComplete(batchMap);
+      }
+      
+      return batchMap;
+    })
+  );
+  
+  // Merge all batch results
+  batchResults.forEach((batchMap) => {
+    batchMap.forEach((value, key) => {
+      weatherMap.set(key, value);
+    });
+  });
   
   return weatherMap;
 }

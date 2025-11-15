@@ -72,7 +72,7 @@ function App() {
       try {
         await fetchWeatherForPositions(
           currentData.positions.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
-          10,
+          20,
           (batchData) => {
             // Update weather data incrementally as batches complete
             setWeatherData((prev) => {
