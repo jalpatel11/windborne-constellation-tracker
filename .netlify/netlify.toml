@@ -1,0 +1,30 @@
+functionsDirectory = "/Users/jalpatel/work/windborne-challenge/netlify/functions"
+functionsDirectoryOrigin = "default"
+plugins = []
+headers = []
+redirects = []
+
+[build]
+publish = "/Users/jalpatel/work/windborne-challenge/dist"
+publishOrigin = "ui"
+commandOrigin = "ui"
+command = "npm run build"
+functions = "/Users/jalpatel/work/windborne-challenge/netlify/functions"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[functions]
+
+[functions."*"]
